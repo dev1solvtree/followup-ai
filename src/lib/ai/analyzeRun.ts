@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk"
+import OpenAI from "openai"
 
 interface RunRecommendation {
   action: "continue" | "pause" | "change_channel" | "escalate" | "close"
@@ -6,8 +6,8 @@ interface RunRecommendation {
   suggestedChannel?: string
 }
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 })
 
 export async function analyzeRun(runData: {
@@ -35,14 +35,14 @@ Based on this data, recommend one action:
 Return ONLY valid JSON with: action, reason, and optionally suggestedChannel.`
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6-20250514",
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
       max_tokens: 300,
       messages: [{ role: "user", content: prompt }],
     })
 
-    const textBlock = response.content.find((b) => b.type === "text")
-    return JSON.parse(textBlock?.text ?? '{"action":"continue","reason":"Default"}') as RunRecommendation
+    const content = response.choices[0]?.message?.content ?? '{"action":"continue","reason":"Default"}'
+    return JSON.parse(content) as RunRecommendation
   } catch (error) {
     console.error("Run analysis failed:", error)
     return { action: "continue", reason: "Analysis unavailable, continuing by default" }

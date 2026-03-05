@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk"
+import OpenAI from "openai"
 
 interface ReplyClassification {
   intent: "success" | "objection" | "reschedule" | "unsubscribe" | "question"
@@ -6,8 +6,8 @@ interface ReplyClassification {
   shouldStop: boolean
 }
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 })
 
 export async function classifyReply(
@@ -34,14 +34,14 @@ Return a JSON object with:
 Return ONLY valid JSON, nothing else.`
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
       max_tokens: 300,
       messages: [{ role: "user", content: prompt }],
     })
 
-    const textBlock = response.content.find((b) => b.type === "text")
-    const parsed = JSON.parse(textBlock?.text ?? "{}") as ReplyClassification
+    const content = response.choices[0]?.message?.content ?? "{}"
+    const parsed = JSON.parse(content) as ReplyClassification
     return {
       intent: parsed.intent ?? "question",
       suggestedResponse: parsed.suggestedResponse ?? "",

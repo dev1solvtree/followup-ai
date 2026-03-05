@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk"
+import OpenAI from "openai"
 
 interface EnhanceMessageInput {
   template: string
@@ -10,8 +10,8 @@ interface EnhanceMessageInput {
   useCase: string
 }
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 })
 
 export async function enhanceMessage({
@@ -37,14 +37,13 @@ Template: ${template}
 Contact Data: ${JSON.stringify({ ...contact, ...metadata })}`
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
       max_tokens: 300,
       messages: [{ role: "user", content: prompt }],
     })
 
-    const textBlock = response.content.find((b) => b.type === "text")
-    return textBlock?.text ?? fillVariables(template, { ...contact, ...metadata })
+    return response.choices[0]?.message?.content ?? fillVariables(template, { ...contact, ...metadata })
   } catch (error) {
     console.error("AI enhancement failed, using template fallback:", error)
     return fillVariables(template, { ...contact, ...metadata })
