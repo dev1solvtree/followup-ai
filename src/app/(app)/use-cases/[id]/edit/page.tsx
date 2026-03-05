@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { PageHeader } from "@/components/shared/PageHeader"
-import { ArrowLeft, Plus, Trash2, GripVertical, Save } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, GripVertical, Save, Sparkles, Loader2, Check } from "lucide-react"
 import Link from "next/link"
 
 interface StepForm {
@@ -25,6 +25,12 @@ interface StepForm {
   stopIfReplied: boolean
 }
 
+interface MessageVariation {
+  message: string
+  subject?: string
+  style: string
+}
+
 export default function EditUseCasePage() {
   const params = useParams()
   const router = useRouter()
@@ -34,6 +40,8 @@ export default function EditUseCasePage() {
   const [steps, setSteps] = useState<StepForm[]>([])
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [generatingForStep, setGeneratingForStep] = useState<number | null>(null)
+  const [variations, setVariations] = useState<Record<number, MessageVariation[]>>({})
 
   useEffect(() => {
     if (!params.id) return
@@ -91,6 +99,62 @@ export default function EditUseCasePage() {
     setSteps((prev) =>
       prev.filter((_, i) => i !== index).map((s, i) => ({ ...s, stepNumber: i + 1 }))
     )
+    // Clear variations for removed step
+    setVariations((prev) => {
+      const next = { ...prev }
+      delete next[index]
+      return next
+    })
+  }
+
+  const generateVariations = async (stepIndex: number) => {
+    const step = steps[stepIndex]
+    if (!step) return
+
+    setGeneratingForStep(stepIndex)
+    setVariations((prev) => {
+      const next = { ...prev }
+      delete next[stepIndex]
+      return next
+    })
+
+    try {
+      const res = await fetch("/api/ai/message-variations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: step.channel,
+          tone: step.tone,
+          stepNumber: step.stepNumber,
+          totalSteps: steps.length,
+          useCaseName: name,
+          currentMessage: step.messageTemplate || undefined,
+          subject: step.channel === "EMAIL" ? step.subject || undefined : undefined,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setVariations((prev) => ({ ...prev, [stepIndex]: data.data }))
+      }
+    } catch (err) {
+      console.error("Failed to generate variations:", err)
+    } finally {
+      setGeneratingForStep(null)
+    }
+  }
+
+  const selectVariation = (stepIndex: number, variation: MessageVariation) => {
+    updateStep(stepIndex, "messageTemplate", variation.message)
+    if (variation.subject && steps[stepIndex]?.channel === "EMAIL") {
+      updateStep(stepIndex, "subject", variation.subject)
+    }
+    // Clear variations after selection
+    setVariations((prev) => {
+      const next = { ...prev }
+      delete next[stepIndex]
+      return next
+    })
   }
 
   const save = async () => {
@@ -192,15 +256,91 @@ export default function EditUseCasePage() {
                 )}
 
                 <div>
-                  <Label className="text-xs">Message Template</Label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Label className="text-xs">Message Template</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateVariations(i)}
+                      disabled={generatingForStep !== null}
+                      className="h-7 text-xs gap-1.5 text-amber-500 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-400"
+                    >
+                      {generatingForStep === i ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3 w-3" />
+                          Generate 5 Variations
+                        </>
+                      )}
+                    </Button>
+                  </div>
                   <Textarea
                     value={step.messageTemplate}
                     onChange={(e) => updateStep(i, "messageTemplate", e.target.value)}
-                    placeholder="Use {{name}}, {{amount}}, etc."
+                    placeholder="Use {{name}}, {{amount}}, etc. or click Generate to create AI variations"
                     rows={4}
                     className="bg-secondary font-mono text-sm"
                   />
                 </div>
+
+                {/* AI Variations Picker */}
+                {variations[i] && variations[i].length > 0 && (
+                  <div className="space-y-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-amber-500">
+                        Pick a variation
+                      </p>
+                      <button
+                        onClick={() => setVariations((prev) => {
+                          const next = { ...prev }
+                          delete next[i]
+                          return next
+                        })}
+                        className="text-[10px] text-muted-foreground hover:text-foreground"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {variations[i].map((v, vi) => (
+                        <button
+                          key={vi}
+                          onClick={() => selectVariation(i, v)}
+                          className="w-full text-left rounded-lg border border-border bg-[#1A1A1A] p-3 hover:border-amber-500/40 hover:bg-[#1A1A1A]/80 transition-colors group"
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
+                              {v.style}
+                            </span>
+                            <Check className="h-3 w-3 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                          {v.subject && (
+                            <p className="text-[11px] text-amber-500/70 mb-1 truncate">
+                              Subject: {v.subject}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {v.message}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => generateVariations(i)}
+                      disabled={generatingForStep !== null}
+                      className="w-full text-xs text-muted-foreground hover:text-amber-500"
+                    >
+                      <Sparkles className="mr-1.5 h-3 w-3" />
+                      Regenerate variations
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">
@@ -237,6 +377,22 @@ export default function EditUseCasePage() {
               <div>
                 <Label className="text-xs">Success Condition</Label>
                 <Input value={successCondition} onChange={(e) => setSuccessCondition(e.target.value)} className="bg-secondary" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#1A1A1A] border-border">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/10">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold">AI Message Generation</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Click &quot;Generate 5 Variations&quot; on any step to get AI-written messages. Pick the one you like, then customize it further.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

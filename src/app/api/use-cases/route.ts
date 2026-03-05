@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         channels,
         orgId,
         steps: steps ? {
-          create: steps.map((s: { stepNumber: number; delayHours: number; delayUnit?: string; channel: string; messageTemplate: string; subject?: string; tone?: string }) => ({
+          create: steps.map((s: { stepNumber: number; delayHours: number; delayUnit?: string; channel: string; messageTemplate: string; subject?: string; tone?: string; aiEnhance?: boolean; stopIfReplied?: boolean }) => ({
             stepNumber: s.stepNumber,
             delayHours: s.delayHours,
             delayUnit: s.delayUnit ?? "hours",
@@ -48,6 +48,8 @@ export async function POST(req: NextRequest) {
             messageTemplate: s.messageTemplate,
             subject: s.subject,
             tone: s.tone ?? "professional",
+            aiEnhance: s.aiEnhance ?? true,
+            stopIfReplied: s.stopIfReplied ?? true,
           })),
         } : undefined,
       },
