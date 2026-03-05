@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth Models ───────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String?
+  email         String?        @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  orgId         String?
+  org           Organization?  @relation(fields: [orgId], references: [id])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── App Models ────────────────────────────────────────────
+
+model Organization {
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  n8nWebhookBase String          @default("")
+  useCases       UseCase[]
+  contacts       Contact[]
+  runs           FollowUpRun[]
+  users          User[]
+  createdAt      DateTime        @default(now())
+}
+
+model UseCase {
+  id               String         @id @default(cuid())
+  orgId            String
+  org              Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name             String
+  type             UseCaseType
+  description      String?
+  icon             String
+  color            String
+  steps            FollowUpStep[]
+  successCondition String
+  successWebhook   String?
+  channels         Channel[]
+  isActive         Boolean        @default(true)
+  runs             FollowUpRun[]
+  createdAt        DateTime       @default(now())
+}
+
+enum UseCaseType {
+  PAYMENT_COLLECTION
+  SALES_INQUIRY
+  MEETING_BOOKING
+  PROPOSAL_FOLLOWUP
+  QUOTE_FOLLOWUP
+  ONBOARDING
+  CONTRACT_RENEWAL
+  FEEDBACK_REQUEST
+  RE_ENGAGEMENT
+  EVENT_REGISTRATION
+}
+
+enum Channel {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+model FollowUpStep {
+  id              String   @id @default(cuid())
+  useCaseId       String
+  useCase         UseCase  @relation(fields: [useCaseId], references: [id], onDelete: Cascade)
+  stepNumber      Int
+  delayHours      Int
+  delayUnit       String   @default("hours")
+  channel         Channel
+  messageTemplate String   @db.Text
+  subject         String?
+  tone            String   @default("professional")
+  aiEnhance       Boolean  @default(true)
+  stopIfReplied   Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  @@unique([useCaseId, stepNumber])
+}
+
+model Contact {
+  id        String        @id @default(cuid())
+  orgId     String
+  org       Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  metadata  Json?
+  runs      FollowUpRun[]
+  createdAt DateTime      @default(now())
+}
+
+model FollowUpRun {
+  id           String    @id @default(cuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  useCaseId    String
+  useCase      UseCase   @relation(fields: [useCaseId], references: [id])
+  contactId    String
+  contact      Contact   @relation(fields: [contactId], references: [id])
+  status       RunStatus @default(ACTIVE)
+  currentStep  Int       @default(0)
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  successAt    DateTime?
+  metadata     Json?
+  logs         RunLog[]
+  nextActionAt DateTime?
+}
+
+enum RunStatus {
+  ACTIVE
+  SUCCESS
+  FAILED
+  PAUSED
+  STOPPED
+}
+
+model RunLog {
+  id          String      @id @default(cuid())
+  runId       String
+  run         FollowUpRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepNumber  Int
+  channel     Channel
+  message     String      @db.Text
+  sentAt      DateTime    @default(now())
+  status      String
+  n8nResponse Json?
+}
