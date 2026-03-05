@@ -8,14 +8,14 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { ChannelIcon } from "@/components/shared/ChannelIcon"
 import {
   Banknote, Search, Calendar, FileText, Receipt,
-  Rocket, RefreshCw, Star, Snowflake, Ticket, Plus, ChevronRight,
+  Rocket, RefreshCw, Star, Snowflake, Ticket, Plus, ChevronRight, Zap,
 } from "lucide-react"
 import Link from "next/link"
 
 const iconMap: Record<string, React.ElementType> = {
   banknote: Banknote, search: Search, calendar: Calendar,
   "file-text": FileText, receipt: Receipt, rocket: Rocket,
-  "refresh-cw": RefreshCw, star: Star, snowflake: Snowflake, ticket: Ticket,
+  "refresh-cw": RefreshCw, star: Star, snowflake: Snowflake, ticket: Ticket, zap: Zap,
 }
 
 interface UseCaseData {
@@ -59,10 +59,12 @@ export default function UseCasesPage() {
   return (
     <div className="space-y-8">
       <PageHeader title="Use Cases" description="Pre-built and custom follow-up templates">
-        <Button variant="outline">
-          <Plus className="mr-2 h-4 w-4" />
-          Create Custom
-        </Button>
+        <Link href="/use-cases/new">
+          <Button variant="outline">
+            <Plus className="mr-2 h-4 w-4" />
+            Create Custom
+          </Button>
+        </Link>
       </PageHeader>
 
       {loading ? (

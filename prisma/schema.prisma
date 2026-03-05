@@ -104,6 +104,7 @@ enum UseCaseType {
   FEEDBACK_REQUEST
   RE_ENGAGEMENT
   EVENT_REGISTRATION
+  CUSTOM
 }
 
 enum Channel {
