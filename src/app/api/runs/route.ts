@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { scheduleFollowUpStep } from "@/lib/queue/followUpQueue"
 
 export const dynamic = "force-dynamic"
 
@@ -64,6 +65,20 @@ export async function POST(req: NextRequest) {
         useCase: { include: { steps: true } },
       },
     })
+
+    // Schedule the first step in BullMQ (if starting now)
+    if (startNow !== false && firstStep) {
+      try {
+        await scheduleFollowUpStep({
+          runId: run.id,
+          stepNumber: firstStep.stepNumber,
+          delayMs: delayMs,
+        })
+      } catch (scheduleError) {
+        // Queue might not be available (no Redis) — run is still created
+        console.error("Failed to schedule first step (Redis may be unavailable):", scheduleError)
+      }
+    }
 
     return NextResponse.json({ success: true, data: run })
   } catch (error) {

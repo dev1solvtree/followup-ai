@@ -702,11 +702,22 @@ async function main() {
     })
   }
 
+  const adminUser = await prisma.user.create({
+    data: {
+      email: "admin@followupai.app",
+      name: "Admin",
+      orgId: org.id,
+      role: "ADMIN",
+    },
+  })
+  console.log(`Created admin user: ${adminUser.email}`)
+
   const demoUser = await prisma.user.create({
     data: {
       email: "demo@followupai.app",
       name: "Demo User",
       orgId: org.id,
+      role: "USER",
     },
   })
   console.log(`Created demo user: ${demoUser.email}`)

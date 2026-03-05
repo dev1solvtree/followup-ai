@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
@@ -11,6 +12,7 @@ import {
   BarChart3,
   Settings,
   Zap,
+  Shield,
 } from "lucide-react"
 
 const navItems = [
@@ -22,8 +24,15 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ]
 
+const adminNavItems = [
+  { href: "/admin/organizations", label: "Organizations", icon: Shield },
+]
+
 export function AppSidebar() {
   const pathname = usePathname()
+  const { data: session } = useSession()
+  const role = (session?.user as { role?: string } | undefined)?.role
+  const isAdmin = role === "ADMIN"
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-[#0D0D0D] flex flex-col">
@@ -53,6 +62,34 @@ export function AppSidebar() {
             </Link>
           )
         })}
+
+        {isAdmin && (
+          <>
+            <div className="pt-4 pb-2 px-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                Admin
+              </p>
+            </div>
+            {adminNavItems.map((item) => {
+              const isActive = pathname.startsWith(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-amber-500/10 text-amber-500"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              )
+            })}
+          </>
+        )}
       </nav>
 
       <div className="border-t border-border p-4">
